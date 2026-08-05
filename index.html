@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CWE Security Lookup</title>
+  <meta name="description" content="Instant CWE vulnerability lookup, multi-language remediation guide, and 1-click Jira description generator for developers.">
+  <meta name="color-scheme" content="light dark">
+  <!--
+    Sets the theme before first paint to avoid a flash of the wrong theme.
+    Preference order: saved choice -> OS preference -> light.
+  -->
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('cwe-lookup-theme');
+        var theme = saved === 'light' || saved === 'dark'
+          ? saved
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <noscript>
+    <div style="padding:40px;font-family:sans-serif;max-width:520px;margin:0 auto;text-align:center;">
+      <h2>JavaScript required</h2>
+      <p>CWE Security Lookup renders CWE data client-side and needs JavaScript enabled to run.</p>
+    </div>
+  </noscript>
+  <div id="app" class="app-shell"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
