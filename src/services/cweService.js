@@ -1,4 +1,10 @@
 import { cweDatabase } from '../data/cweDatabase.js';
+import { resolveVulnAlias, isBestEffortAlias, searchVulnAliases } from '../data/vulnAliases.js';
+
+// MITRE's CWE catalog is in the low thousands (highest published IDs are
+// currently in the ~1400s). Anything beyond this is not a real CWE number,
+// so there's no point fabricating a record for it.
+const MAX_PLAUSIBLE_CWE_NUMBER = 9999;
 
 export function normalizeCweId(input) {
   if (!input) return '';
@@ -8,7 +14,57 @@ export function normalizeCweId(input) {
   return numOnly ? `CWE-${numOnly}` : trimmed;
 }
 
+/**
+ * Checks whether a query is actually shaped like a CWE reference - i.e. it
+ * reduces cleanly to an optional "CWE" label plus digits (e.g. "CWE-89",
+ * "cwe 89", "#89", "89") within a plausible number range. Anything else
+ * (stray letters, absurdly large numbers) is not coerced into a fake CWE ID.
+ */
+function parseAsCweReference(query) {
+  const trimmed = (query || '').trim().toUpperCase();
+  const match = trimmed.match(/^(?:CWE)?[\s\-#]*([0-9]+)$/);
+  if (!match) return null;
+  const num = parseInt(match[1], 10);
+  if (!Number.isFinite(num) || num <= 0 || num > MAX_PLAUSIBLE_CWE_NUMBER) return null;
+  return `CWE-${num}`;
+}
+
+/**
+ * Resolves a query to CWE details, transparently accepting internal/scanner
+ * vulnerability IDs (e.g. "SQL-INJ-001") as an alias for the CWE they map
+ * to (see src/data/vulnAliases.js). The alias itself is never fetched
+ * remotely - it's translated to a CWE ID up front, then runs through the
+ * normal local cache -> MITRE API -> synthesized fallback chain.
+ *
+ * Anything that is neither a known alias nor a plausibly-shaped CWE
+ * reference (e.g. a made-up ID like "API-EXPOSURE-103030", or a real alias
+ * prefix with a number that was never registered) returns source
+ * 'unresolved' with no data, rather than silently fabricating a confident
+ * -looking generic record for an ID that doesn't exist.
+ */
 export async function fetchCweDetails(cweQuery) {
+  const rawInput = (cweQuery || '').trim();
+  const aliasedCweId = resolveVulnAlias(rawInput);
+
+  if (aliasedCweId) {
+    const result = await resolveCweDetails(aliasedCweId);
+    result.alias = {
+      id: rawInput.toUpperCase(),
+      resolvedTo: aliasedCweId,
+      isBestEffort: isBestEffortAlias(rawInput)
+    };
+    return result;
+  }
+
+  const cweReference = parseAsCweReference(rawInput);
+  if (!cweReference) {
+    return { data: null, source: 'unresolved', query: rawInput };
+  }
+
+  return resolveCweDetails(cweReference);
+}
+
+async function resolveCweDetails(cweQuery) {
   const normalizedId = normalizeCweId(cweQuery);
 
   // 1. Check local pre-cached database
@@ -65,7 +121,17 @@ export function searchCweSuggestions(query) {
       results.push(item);
     }
   }
-  return results.slice(0, 6);
+
+  // Also surface internal/scanner vulnerability ID aliases (e.g. "SQL-INJ-001")
+  // so engineers can search by their own tooling's ID, not just the CWE ID.
+  const aliasMatches = searchVulnAliases(query).map((a) => ({
+    id: a.id,
+    name: `Alias for ${a.cweId}${a.isBestEffort ? ' (best-effort mapping)' : ''}`,
+    severity: 'Alias',
+    isAlias: true
+  }));
+
+  return [...results, ...aliasMatches].slice(0, 6);
 }
 
 /**

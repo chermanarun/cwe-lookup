@@ -34,6 +34,25 @@ It allows security engineers, developers, and QA teams to input any Common Weakn
 - **🏷️ Discouraged Pillar Guidance**: Displays warning notes and clickable links to specific descendant weaknesses when querying high-level Pillar CWEs (e.g. `CWE-284` $\rightarrow$ `CWE-862`, `CWE-863`, `CWE-306`).
 - **🛡️ 15+ Security Parameters**: Includes CVSS 3.1 rating, OWASP Top 10 2021 mapping, Problem Description, Attack Impact, Auto-Fix Confidence, Primary/Defense-in-Depth Fix Methods, SAST/DAST Testing Strategies, Prevention Checklists, and Compliance Impact (PCI-DSS 4.0, HIPAA, SOC 2, ISO 27001, NIST SP 800-53).
 - **🏛️ Classic Enterprise UI**: Clean, crisp, high-contrast interface designed for security operations and developer productivity without flashy AI neon clutter.
+- **🔗 Vulnerability ID Aliases**: Search by your own scanner/rule ID (e.g. `SQL-INJ-001`, `SSRF-001`, `LOG4J-001`) and land on the exact same CWE record as searching the CWE ID directly — no separate content to maintain.
+
+---
+
+## 🔗 Vulnerability ID Aliases
+
+Security tooling rarely speaks in CWE IDs — SAST/SCA/IaC scanners emit their own rule names. `src/data/vulnAliases.js` maps 56 common internal/scanner-style IDs to the CWE they represent, so typing `SQL-INJ-001` in the search bar resolves to `CWE-89` and renders the same overview, code examples, checklist, and Jira template.
+
+```
+SQL-INJ-001   → CWE-89   (SQL Injection)
+XSS-001       → CWE-79   (Cross-Site Scripting)
+SSRF-001      → CWE-918  (Server-Side Request Forgery)
+API-BOLA-001  → CWE-639  (Broken Object-Level Authorization / IDOR)
+JWT-001       → CWE-347  (Improper Verification of Cryptographic Signature)
+```
+
+A subset — `DEPS-CONF-001`, `LOG4J-001`, `STRUTS-001`, `S3-PUBLIC-001`, `DOCKER-ROOT-001`, `K8S-RBAC-001`, `CICD-INJ-001`, `TERRAFORM-SEC-001` — are infrastructure/supply-chain findings rather than a single code-level weakness. CWE has no exact 1:1 category for things like "public S3 bucket" or "container running as root", so these map to the *closest-fit* CWE. The app flags these as a best-effort mapping and the vulnerable/fixed code tabs will read as generic — the underlying fix is a config change, not a code diff.
+
+To add more aliases, add an entry to the `vulnAliases` object (and to `INFRA_BEST_EFFORT_IDS` if it's a config/infra finding, not a code weakness).
 
 ---
 

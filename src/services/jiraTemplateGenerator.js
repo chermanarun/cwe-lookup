@@ -1,8 +1,16 @@
 /**
  * Generates a beautifully formatted Jira Markdown description template
  * incorporating all 15+ requested vulnerability parameters.
+ *
+ * @param {object} cweData
+ * @param {string} selectedLanguage
+ * @param {{id: string, resolvedTo: string, isBestEffort: boolean}|null} alias
+ *   Set when the lookup came in via a scanner/internal vulnerability ID
+ *   (e.g. "API-EXPOSURE-001") rather than a CWE ID directly - see
+ *   src/data/vulnAliases.js. Included so the ticket stays traceable back to
+ *   the original finding, not just the CWE it was mapped to.
  */
-export function generateJiraTemplate(cweData, selectedLanguage = 'python') {
+export function generateJiraTemplate(cweData, selectedLanguage = 'python', alias = null) {
   if (!cweData) return '';
 
   const langKey = selectedLanguage.toLowerCase();
@@ -17,10 +25,14 @@ export function generateJiraTemplate(cweData, selectedLanguage = 'python') {
     ? cweData.testingMethod.replace(/\\n/g, '\n')
     : '1. SAST Analysis\n2. DAST Payload Injection\n3. Unit Testing';
 
+  const reportedAsRow = alias
+    ? `| *Reported As* | *${alias.id}*${alias.isBestEffort ? ' _(best-effort CWE mapping - verify manually)_' : ''} |\n`
+    : '';
+
   return `h1. [SECURITY VULNERABILITY REPORT] ${cweData.id}: ${cweData.name}
 
 || Parameter || Value ||
-| *Vulnerability ID* | *${cweData.id}* |
+${reportedAsRow}| *CWE ID* | *${cweData.id}* |
 | *Vulnerability Name* | ${cweData.name} |
 | *Category* | ${cweData.category} |
 | *OWASP Category* | ${cweData.owaspCategory || 'N/A'} |

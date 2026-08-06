@@ -28,6 +28,8 @@ const SOURCE_META = {
 export function createCweDetailView({
   cweData,
   cweSource,
+  cweAlias,
+  unresolvedQuery,
   selectedLanguage,
   activeTab,
   isPinned,
@@ -40,19 +42,14 @@ export function createCweDetailView({
   container.className = 'container page-body animate-fade-in';
 
   if (!cweData) {
-    container.innerHTML = `
-      <div class="card state-block">
-        <h3 style="font-size:15px;font-weight:700;">No CWE data found</h3>
-        <p class="mt-2" style="font-size:12.5px;">Search for a valid CWE ID (e.g. CWE-89, CWE-284, CWE-79).</p>
-      </div>
-    `;
+    container.innerHTML = renderUnresolvedState(unresolvedQuery);
     return container;
   }
 
   const langKey = (selectedLanguage || 'python').toLowerCase();
   const langData = cweData.languages?.[langKey] || cweData.languages?.python || {};
   const currentTab = activeTab || 'overview';
-  const jiraTemplateText = generateJiraTemplate(cweData, selectedLanguage);
+  const jiraTemplateText = generateJiraTemplate(cweData, selectedLanguage, cweAlias);
   const severityBadgeClass = getSeverityBadgeClass(cweData.severity);
   const sourceMeta = SOURCE_META[cweSource] || SOURCE_META.local;
 
@@ -119,6 +116,7 @@ export function createCweDetailView({
       </div>
     </div>
 
+    ${renderAliasBanner(cweAlias)}
     ${renderMappingNotesBanner(cweData.mappingNotes)}
 
     <div style="margin: 20px 0;">
@@ -176,6 +174,50 @@ export function createCweDetailView({
   }
 
   return container;
+}
+
+function renderUnresolvedState(query) {
+  const shown = query ? query.trim() : '';
+  const looksAliasShaped = /[A-Za-z]/.test(shown) && /-/.test(shown);
+
+  return `
+    <div class="card card-pad" style="max-width:640px; margin:32px auto;">
+      <div style="display:flex; align-items:flex-start; gap:12px;">
+        <span style="color:var(--warning-strong); flex-shrink:0; margin-top:2px;">
+          ${icon(Icons.alertTriangle, { size: 20 })}
+        </span>
+        <div>
+          <h3 style="font-size:15px; font-weight:700;">
+            Couldn't resolve "${escapeHtml(shown)}"
+          </h3>
+          <p class="mt-2 text-secondary leading-relaxed" style="font-size:12.5px;">
+            This isn't a recognized vulnerability ID alias, and it doesn't match a valid CWE ID format (e.g. <span class="mono">CWE-89</span>).
+            ${looksAliasShaped ? "If this came from a scanner or ticket, double-check the exact ID - it may be a typo, or it isn't in this app's alias list yet." : 'Try a CWE ID number, or a keyword like "injection" or "access control".'}
+          </p>
+          <p class="mt-3" style="font-size:12px;">
+            <strong>No result was fabricated</strong> for this ID - unlike an unresolvable CWE reference, we don't guess when the ID itself doesn't check out.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderAliasBanner(alias) {
+  if (!alias) return '';
+
+  return `
+    <div class="alert-banner${alias.isBestEffort ? '' : ' alert-banner--neutral'}" style="margin-top:20px;">
+      <div class="alert-banner-head">
+        ${icon(Icons.link2, { size: 14 })} Resolved from internal ID: ${alias.id} &rarr; ${alias.resolvedTo}
+      </div>
+      <p>
+        ${alias.isBestEffort
+          ? 'This is an infrastructure/supply-chain finding without a single exact CWE match - the closest-fit weakness is shown below, so the code examples may read as generic.'
+          : `Showing the CWE record that "${alias.id}" maps to. Search "${alias.resolvedTo}" directly next time to skip the alias lookup.`}
+      </p>
+    </div>
+  `;
 }
 
 function renderMappingNotesBanner(mappingNotes) {

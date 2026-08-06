@@ -94,7 +94,7 @@ export function createHeader({ currentCweId, theme, onSearch, onSelectCwe, onTog
             <span class="autocomplete-item-id">${m.id}</span>
             <span class="autocomplete-item-name">${m.name}</span>
           </div>
-          <span class="badge badge-neutral">${m.severity}</span>
+          <span class="badge ${m.isAlias ? 'badge-info' : 'badge-neutral'}">${m.severity}</span>
         </div>
       `).join('');
       dropdown.classList.remove('hidden');

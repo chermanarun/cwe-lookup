@@ -1,6 +1,6 @@
 import { createHeader } from './components/Header.js';
 import { createCweDetailView } from './components/CweDetailView.js';
-import { fetchCweDetails, normalizeCweId } from './services/cweService.js';
+import { fetchCweDetails } from './services/cweService.js';
 import { initTheme, toggleTheme } from './utils/theme.js';
 import { isPinned, togglePin } from './utils/pins.js';
 
@@ -11,19 +11,33 @@ class AppState {
     this.activeTab = 'overview';
     this.cweData = null;
     this.cweSource = 'local';
+    this.cweAlias = null;
+    this.unresolvedQuery = null;
     this.loading = false;
     this.theme = 'light';
   }
 
   async setCwe(cweId) {
-    this.currentCweId = normalizeCweId(cweId);
+    const rawInput = (cweId || '').trim();
+    // Show exactly what the user typed while loading, rather than eagerly
+    // mangling it - a garbage/alias-shaped query shouldn't get coerced into
+    // a fake "CWE-xxxxx" before we even know whether it resolves.
+    this.currentCweId = rawInput.toUpperCase();
     this.loading = true;
     renderApp();
 
     try {
-      const result = await fetchCweDetails(this.currentCweId);
+      const result = await fetchCweDetails(rawInput);
       this.cweData = result.data;
       this.cweSource = result.source;
+      this.cweAlias = result.alias || null;
+      this.unresolvedQuery = result.source === 'unresolved' ? rawInput : null;
+
+      if (result.alias) {
+        this.currentCweId = result.alias.resolvedTo;
+      } else if (result.data?.id) {
+        this.currentCweId = result.data.id;
+      }
     } catch (err) {
       console.error('Error fetching CWE details:', err);
     } finally {
@@ -87,13 +101,15 @@ function renderApp() {
         <p class="mono" style="font-size:12.5px;">Fetching security intelligence for ${state.currentCweId}...</p>
       </div>
     `;
-  } else if (state.cweData) {
+  } else {
     const detailView = createCweDetailView({
       cweData: state.cweData,
       cweSource: state.cweSource,
+      cweAlias: state.cweAlias,
+      unresolvedQuery: state.unresolvedQuery,
       selectedLanguage: state.selectedLanguage,
       activeTab: state.activeTab,
-      isPinned: isPinned(state.currentCweId),
+      isPinned: state.cweData ? isPinned(state.currentCweId) : false,
       onLanguageChange: (lang) => state.setLanguage(lang),
       onTabChange: (tab) => state.setTab(tab),
       onSelectCwe: (cweId) => state.setCwe(cweId),
